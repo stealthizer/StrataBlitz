@@ -17,3 +17,10 @@ and then open http://localhost:8080 on your favourite(*) browser
 
 (*) Tested in Brave and Safari
 
+## TO DO
+
+- enemy ships are not shooting
+- desert background requires some love
+- there is no score system
+- the player only has one life
+- multiplayer
