@@ -49,6 +49,7 @@ const GameScene = new Phaser.Class({
         this.gameOver = false;
         this.bossSpawned = false;
         this.currentLevel = 1;
+        this.gameStartTime = 0;
     },
 
     preload: function() {
@@ -87,6 +88,10 @@ const GameScene = new Phaser.Class({
 
     create: function() {
     console.log('Game: Initializing game elements...');
+    // Set initial game time
+    this.gameStartTime = this.time.now;
+    this.lastEnemySpawnTime = this.time.now;
+    
     // Create background first
     this.background = this.add.tileSprite(0, 0, 600, 800, 'background_level1');
     this.background.setOrigin(0, 0);
@@ -549,12 +554,17 @@ const GameScene = new Phaser.Class({
 
         // Level-specific logic
         if (this.currentLevel === 1) {
-            // Level 1 logic (unchanged)
-            if (!this.bossSpawned && time > 10000) {
+            // Level 1 logic
+            const timeInGame = time - this.gameStartTime;
+            
+            // Check for boss spawn
+            if (!this.bossSpawned && timeInGame > 10000) {
                 this.spawnBoss();
             }
             
-            if (time > this.lastEnemySpawnTime + this.enemySpawnInterval && !this.bossSpawned) {
+            // Check for enemy spawn
+            if (!this.bossSpawned && time > this.lastEnemySpawnTime + this.enemySpawnInterval) {
+                console.log('Game Event: Attempting to spawn enemy at time:', timeInGame);
                 this.spawnEnemy();
                 this.lastEnemySpawnTime = time;
             }
