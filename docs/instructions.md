@@ -31,8 +31,8 @@ Is a 2D Arcade Game where a ship has to survive other ships that come from up th
         This level begins after the title screen, when player press 1 to begin the game
         - Common enemies:
             - They com from above randomly. They will move linearly down.
-            - enemy_ship1 don't shoot. Is moderate fast. Takes 2 shots do destroy
-            - enemy_ship2 don't shoot. Is faster than enemy-ship1
+            - enemy_ship1 don't shoot. Is moderate fast. Takes 2 shots do destroy. Score is 10 points
+            - enemy_ship2 don't shoot. Is faster than enemy-ship1. Score is 5 points
         - Boss1:
             - boss1 is 200x200 and is named enemy_boss1.png
             - It spawns after 10 seconds of the init of the game.
@@ -40,20 +40,22 @@ Is a 2D Arcade Game where a ship has to survive other ships that come from up th
             - It moves from left to right, to left in a continuous loop
             - Boss1 rotates over the center of the image clockwise
             - to kill Boss1 it needs 10 bullet hits
+            - score is 200 points
             - when is defeated, the screen fades to black, shows "Level 2" and despawns. It continues 
     - Level 2:
         Background screen for this level is background_level2.png
         This level begins after defeating Boss1. The Boss1 disappears for the rest of the game.
         - Common enemies:
             - They com from above randomly. They will move linearly down.
-            - enemy_tank1.png don't shoot. Is moderate fast. Takes 1 shots do destroy. its 60x96 pixels
-            - enemy_tank2.png don't shoot. Is slow. Takes 3 shots do destroy
+            - enemy_tank1.png don't shoot. Is moderate fast. Takes 1 shots do destroy. its 60x96 pixels. score is 5 points
+            - enemy_tank2.png don't shoot. Is slow. Takes 3 shots do destroy. Score is 15 points
             
         - Boss2:
             - boss2 is 283x400 and is named enemy_boss2.png
             - boss2 spawns 10 seconds after beginning the level 2
             - it appears from outside the screen, onto the top-center of the screen and stays in top all the encounter
             - it takes 25 missiles to kill boss2
+            - score is 300 points
             - After killing boss2 continue to End
     - End
         - After killing boss2 the screen fades in black and you win the game

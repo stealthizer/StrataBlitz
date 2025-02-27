@@ -50,6 +50,7 @@ const GameScene = new Phaser.Class({
         this.bossSpawned = false;
         this.currentLevel = 1;
         this.gameStartTime = 0;
+        this.playerSpeed = 300;
     },
 
     preload: function() {
@@ -141,66 +142,62 @@ const GameScene = new Phaser.Class({
     });
     this.bossDebugText.setDepth(100);
     
-    // Define collision handlers
-    this.handleBulletEnemy1Collision = function(bullet, enemy) {
-        console.log('Game Event: Bullet hit enemy1 at position:', { x: enemy.x, y: enemy.y });
-        
-        enemy.health--;
-        bullet.destroy();
-
-        if (enemy.health <= 0) {
-            const explosion = this.add.sprite(enemy.x, enemy.y, 'explosion');
-            explosion.on('animationcomplete', () => {
-                explosion.destroy();
-            });
-            explosion.play('explosion');
-            
-            enemy.destroy();
-            console.log('Game Event: Enemy1 destroyed');
-        } else {
-            console.log('Game Event: Enemy1 damaged, health remaining:', enemy.health);
-        }
-    };
-    
-    this.handleBulletEnemy2Collision = function(bullet, enemy) {
-        console.log('Game Event: Bullet hit enemy2 at position:', { x: enemy.x, y: enemy.y });
-        
-        const explosion = this.add.sprite(enemy.x, enemy.y, 'explosion');
+    // Helper functions to reduce duplication
+    this.createExplosion = function(x, y) {
+        const explosion = this.add.sprite(x, y, 'explosion');
         explosion.on('animationcomplete', () => {
             explosion.destroy();
         });
         explosion.play('explosion');
-        
-        bullet.destroy();
-        enemy.destroy();
-        console.log('Game Event: Enemy2 destroyed');
+        return explosion;
     };
-    
-    this.handlePlayerEnemyCollision = function(player, enemy) {
-        if (!this.gameOver) {
-            console.log('Game Event: Player collided with enemy - Game Over');
-            this.gameOver = true;
-            
-            const explosion = this.add.sprite(player.x, player.y, 'explosion');
-            explosion.on('animationcomplete', () => {
-                explosion.destroy();
-            });
-            explosion.play('explosion');
-            
-            player.setVisible(false);
-            
-                this.handleGameOver();
+
+    this.handlePlayerMovement = function() {
+        let velocityX = 0;
+        let velocityY = 0;
+
+        if (this.cursors.left.isDown) velocityX = -this.playerSpeed;
+        else if (this.cursors.right.isDown) velocityX = this.playerSpeed;
+
+        if (this.cursors.up.isDown) velocityY = -this.playerSpeed;
+        else if (this.cursors.down.isDown) velocityY = this.playerSpeed;
+
+        // Normalize diagonal movement
+        if (velocityX !== 0 && velocityY !== 0) {
+            const normalizer = Math.sqrt(2);
+            velocityX /= normalizer;
+            velocityY /= normalizer;
         }
+
+        this.player.setVelocity(velocityX, velocityY);
+        
+        // Keep player within bounds
+        this.player.x = Phaser.Math.Clamp(this.player.x, 32, config.width - 32);
+        this.player.y = Phaser.Math.Clamp(this.player.y, 32, config.height - 32);
     };
-    
-    // Define boss bullet collision handler
-    this.handleBossBulletCollision = function(boss, bullet) {
+
+    this.cleanupOffscreenEntities = function() {
+        const cleanup = (group, offset, type) => {
+            group.children.each(function(entity) {
+                if (entity.y > config.height + offset) {
+                    console.log(`Game Event: ${type} escaped at position:`, { x: entity.x, y: entity.y });
+                    entity.destroy();
+                }
+            });
+        };
+
+        cleanup(this.enemies1, 48, 'Enemy1');
+        cleanup(this.enemies2, 32, 'Enemy2');
+        cleanup(this.bullets, -32, 'Bullet', true); // true means check if < instead of >
+    };
+
+    this.handleBossHit = function(boss, bullet, isBoss2 = false) {
         if (!boss.health) return;
 
         bullet.destroy();
         boss.health--;
         
-        console.log('Game Event: Boss hit! Health:', boss.health);
+        console.log(`Game Event: Boss${isBoss2 ? '2' : ''} hit! Health:`, boss.health);
         this.updateBossDebug();
 
         // Flash the boss white when hit
@@ -212,9 +209,52 @@ const GameScene = new Phaser.Class({
         });
 
         if (boss.health <= 0) {
-            console.log('Game Event: Boss defeated!');
-            this.handleBossDefeat();
+            console.log(`Game Event: Boss${isBoss2 ? '2' : ''} defeated!`);
+            if (isBoss2) {
+                this.transitionToEnd();
+            } else {
+                this.handleBossDefeat();
+            }
         }
+    };
+
+    // Define collision handlers
+    this.handleBulletEnemy1Collision = function(bullet, enemy) {
+        console.log('Game Event: Bullet hit enemy1 at position:', { x: enemy.x, y: enemy.y });
+        
+        enemy.health--;
+        bullet.destroy();
+
+        if (enemy.health <= 0) {
+            this.createExplosion(enemy.x, enemy.y);
+            enemy.destroy();
+            console.log('Game Event: Enemy1 destroyed');
+        } else {
+            console.log('Game Event: Enemy1 damaged, health remaining:', enemy.health);
+        }
+    };
+    
+    this.handleBulletEnemy2Collision = function(bullet, enemy) {
+        console.log('Game Event: Bullet hit enemy2 at position:', { x: enemy.x, y: enemy.y });
+        this.createExplosion(enemy.x, enemy.y);
+        bullet.destroy();
+        enemy.destroy();
+        console.log('Game Event: Enemy2 destroyed');
+    };
+    
+    this.handlePlayerEnemyCollision = function(player, enemy) {
+        if (!this.gameOver) {
+            console.log('Game Event: Player collided with enemy - Game Over');
+            this.gameOver = true;
+            this.createExplosion(player.x, player.y);
+            player.setVisible(false);
+            this.handleGameOver();
+        }
+    };
+    
+    // Define boss bullet collision handler
+    this.handleBossBulletCollision = function(boss, bullet) {
+        this.handleBossHit(boss, bullet, false);
     };
 
     // Set up collisions
@@ -482,26 +522,7 @@ const GameScene = new Phaser.Class({
     },
 
     handleBoss2BulletCollision: function(boss, bullet) {
-        if (!boss.health) return;
-
-        bullet.destroy();
-        boss.health--;
-        
-        console.log('Game Event: Boss2 hit! Health:', boss.health);
-        this.updateBossDebug();
-
-        // Flash the boss white when hit
-        this.tweens.add({
-            targets: boss,
-            tint: 0xffffff,
-            duration: 100,
-            yoyo: true
-        });
-
-        if (boss.health <= 0) {
-            console.log('Game Event: Boss2 defeated - Transitioning to End');
-            this.transitionToEnd();
-        }
+        this.handleBossHit(boss, bullet, true);
     },
 
     transitionToEnd: function() {
@@ -554,22 +575,18 @@ const GameScene = new Phaser.Class({
 
         // Level-specific logic
         if (this.currentLevel === 1) {
-            // Level 1 logic
             const timeInGame = time - this.gameStartTime;
             
-            // Check for boss spawn
             if (!this.bossSpawned && timeInGame > 10000) {
                 this.spawnBoss();
             }
             
-            // Check for enemy spawn
             if (!this.bossSpawned && time > this.lastEnemySpawnTime + this.enemySpawnInterval) {
                 console.log('Game Event: Attempting to spawn enemy at time:', timeInGame);
                 this.spawnEnemy();
                 this.lastEnemySpawnTime = time;
             }
 
-            // Boss1 movement
             if (this.boss) {
                 this.boss.angle += 1;
                 if (this.boss.x >= 500 && this.boss.body.velocity.x > 0) {
@@ -580,110 +597,35 @@ const GameScene = new Phaser.Class({
                 this.updateBossDebug();
             }
         } else if (this.currentLevel === 2) {
-            // Level 2 logic
             const timeInLevel2 = time - this.level2StartTime;
             
-            // Spawn Boss2 after 10 seconds in Level 2
             if (!this.bossSpawned && timeInLevel2 > 10000) {
                 this.spawnBoss2();
             }
             
-            // Spawn tank enemies if boss2 isn't present
-            if (time > this.lastEnemySpawnTime + this.enemySpawnInterval && !this.bossSpawned) {
+            if (!this.bossSpawned && time > this.lastEnemySpawnTime + this.enemySpawnInterval) {
                 this.spawnEnemy();
                 this.lastEnemySpawnTime = time;
             }
         }
 
-        // Handle player movement
-        if (this.cursors.left.isDown) {
-            this.player.setVelocityX(-160);
-        } else if (this.cursors.right.isDown) {
-            this.player.setVelocityX(160);
-        } else {
-            this.player.setVelocityX(0);
-        }
-
-        if (this.cursors.up.isDown) {
-            this.player.setVelocityY(-160);
-        } else if (this.cursors.down.isDown) {
-            this.player.setVelocityY(160);
-        } else {
-            this.player.setVelocityY(0);
-        }
-
-        // Background update
-        this.background.tilePositionY += this.scrollSpeed1;
-
-        // Clean up enemies that are off screen
-        this.enemies1.children.each(function(enemy) {
-            if (enemy.y > config.height + 48) {
-                console.log('Game Event: Enemy1 escaped at position:', { x: enemy.x, y: enemy.y });
-                enemy.destroy();
-            }
-        });
-
-        this.enemies2.children.each(function(enemy) {
-            if (enemy.y > config.height + 32) {
-                console.log('Game Event: Enemy2 escaped at position:', { x: enemy.x, y: enemy.y });
-                enemy.destroy();
-            }
-        });
-
-        // Player movement
-        const speed = 300;
-        let velocityX = 0;
-        let velocityY = 0;
-
-        if (this.cursors.left.isDown) {
-            velocityX = -speed;
-        } else if (this.cursors.right.isDown) {
-            velocityX = speed;
-        }
-
-        if (this.cursors.up.isDown) {
-            velocityY = -speed;
-        } else if (this.cursors.down.isDown) {
-            velocityY = speed;
-        }
-
-        // Normalize diagonal movement
-        if (velocityX !== 0 && velocityY !== 0) {
-            const normalizer = Math.sqrt(2);
-            velocityX /= normalizer;
-            velocityY /= normalizer;
-        }
-
-        this.player.setVelocity(velocityX, velocityY);
-
-        // Keep player within bounds
-        this.player.x = Phaser.Math.Clamp(this.player.x, 32, config.width - 32);
-        this.player.y = Phaser.Math.Clamp(this.player.y, 32, config.height - 32);
+        // Handle player movement and entity cleanup
+        this.handlePlayerMovement();
+        this.cleanupOffscreenEntities();
 
         // Shooting
         if (this.spaceKey.isDown && time > this.lastShot + this.shootDelay) {
             const bullet = this.bullets.create(this.player.x, this.player.y - 40, 'bullet');
             if (bullet) {
                 bullet.setVelocityY(-400);
-                
-                // Ensure bullet physics body is correct size
-                bullet.body.setSize(10, 30); // Slightly smaller than sprite
-                
+                bullet.body.setSize(10, 30);
                 this.lastShot = time;
                 console.log('Game Event: Player fired bullet at position:', { x: bullet.x, y: bullet.y });
             }
         }
 
-        // Clean up bullets
-        this.bullets.children.each(function(bullet) {
-            if (bullet.y < -32) {
-                bullet.destroy();
-            }
-        });
-
-        // Add debug visualization for collisions
+        // Debug visualization
         if (this.physics.world.drawDebug) {
-            // Enable debug visualization with key press
             if (Phaser.Input.Keyboard.JustDown(this.input.keyboard.addKey('D'))) {
                 this.physics.world.drawDebug = !this.physics.world.drawDebug;
                 if (this.physics.world.debugGraphic) {
